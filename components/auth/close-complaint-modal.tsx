@@ -7,6 +7,7 @@ import { X } from "lucide-react"
 
 interface CloseComplaintModalProps {
   complaintId: string
+  selectedComplaint?: any
   isOpen: boolean
   onClose: () => void
   onConfirm: (reason: string) => Promise<void>

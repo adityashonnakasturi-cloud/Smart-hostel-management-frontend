@@ -14,8 +14,10 @@ interface Room {
 }
 
 interface RoomGridProps {
-  isEditable?: boolean
-  gridSize?: number
+  isEditable?: boolean;
+  gridSize?: number;
+  roomType?: string;
+  filter?: string; // e.g., "single", "double", "triple"
 }
 
 export default function RoomGrid({ isEditable = false, gridSize = 16 }: RoomGridProps) {

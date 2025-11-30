@@ -7,6 +7,7 @@ import StatCard from "@/components/dashboard/stat-card"
 import { Users, AlertCircle, DoorOpen } from "lucide-react"
 import AddStaffModal from "@/components/auth/add-staff-modal"
 import CloseComplaintModal from "@/components/auth/close-complaint-modal"
+import ProtectedRoute from "@/components/auth/protected-route"
 
 const menuItems = [
   { icon: <span>📊</span>, label: "Dashboard", href: "/dashboard/warden" },
@@ -31,7 +32,13 @@ export default function WardenDashboard() {
 
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false)
   const [isViewComplaintsOpen, setIsViewComplaintsOpen] = useState(false)
-  const [selectedComplaint, setSelectedComplaint] = useState(null)
+  const [selectedComplaint, setSelectedComplaint] = useState<{
+    id: string
+    student: string
+    complaint: string
+    status: string
+    date: string
+  } | null>(null)
 
   const handleCloseComplaint = async (reason: string) => {
     try {
@@ -52,6 +59,7 @@ export default function WardenDashboard() {
   }
 
   return (
+    <ProtectedRoute allowedRoles={["warden"]}>
     <DashboardLayout menuItems={menuItems} role="Warden" userName="Mr. Warden">
       <div className="p-6 space-y-8">
         <div>
@@ -119,9 +127,8 @@ export default function WardenDashboard() {
                         <p className="text-sm text-muted-foreground">{complaint.complaint}</p>
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
-                          complaint.status === "Open" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"
-                        }`}
+                        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${complaint.status === "Open" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"
+                          }`}
                       >
                         {complaint.status}
                       </span>
@@ -159,9 +166,10 @@ export default function WardenDashboard() {
       <CloseComplaintModal
         isOpen={isViewComplaintsOpen}
         onClose={() => setIsViewComplaintsOpen(false)}
-        selectedComplaint={selectedComplaint}
-        onCloseComplaint={handleCloseComplaint}
+        complaintId={selectedComplaint?.id ?? ""}   // pass ID only
+        onConfirm={handleCloseComplaint}
       />
     </DashboardLayout>
+    </ProtectedRoute>
   )
 }

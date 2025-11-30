@@ -4,6 +4,7 @@ import { useState } from "react"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import StatCard from "@/components/dashboard/stat-card"
 import { Utensils, TrendingUp, Package } from 'lucide-react'
+import ProtectedRoute from "@/components/auth/protected-route";
 
 const menuItems = [
   { icon: <span>📊</span>, label: "Dashboard", href: "/dashboard/mess-manager" },
@@ -26,6 +27,7 @@ export default function MessManagerDashboard() {
   ])
 
   return (
+    <ProtectedRoute allowedRoles={["mess-manager"]}>
     <DashboardLayout menuItems={menuItems} role="Mess Manager" userName="Manager">
       <div className="p-6 space-y-8">
         <div>
@@ -129,5 +131,6 @@ export default function MessManagerDashboard() {
         </div>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   )
 }

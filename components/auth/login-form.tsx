@@ -4,6 +4,8 @@ import type React from "react"
 
 import { useState } from "react"
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 interface LoginFormProps {
   role: string
 }
@@ -21,19 +23,59 @@ export default function LoginForm({ role }: LoginFormProps) {
 
     try {
       // TODO: Implement actual authentication
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      console.log("Login attempt:", { role, email, password })
-      // Redirect based on role
-      const dashboardMap: Record<string, string> = {
-        Student: "/dashboard/student",
-        Warden: "/dashboard/warden",
-        "Chief Warden": "/dashboard/chief-warden",
-        Staff: "/dashboard/staff",
-        NGO: "/dashboard/ngo",
-        "Mess Manager": "/dashboard/mess-manager",
-        Parent: "/dashboard/parent",
+      // await new Promise((resolve) => setTimeout(resolve, 500))
+      // console.log("Login attempt:", { role, email, password })
+      // // Redirect based on role
+      // const dashboardMap: Record<string, string> = {
+      //   Student: "/dashboard/student",
+      //   Warden: "/dashboard/warden",
+      //   "Chief Warden": "/dashboard/chief-warden",
+      //   Staff: "/dashboard/staff",
+      //   NGO: "/dashboard/ngo",
+      //   "Mess Manager": "/dashboard/mess-manager",
+      //   Parent: "/dashboard/parent",
+      // }
+      // window.location.href = dashboardMap[role] || "/dashboard"
+
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          identifier: email,
+          password: password,
+          role: role.toLowerCase().replace(" ", "")  // optional cleanup
+        })
+      });
+
+      const data = await res.json();
+      console.log("LOGIN RESPONSE:", data);
+
+      if (!res.ok) {
+        setError(data.message || "Login failed");
+        setIsLoading(false);
+        return;
       }
-      window.location.href = dashboardMap[role] || "/dashboard"
+
+      // Save token
+      localStorage.setItem("token", data.token);
+
+      // Redirect based on backend user role
+      const userRole = data.user.role;
+
+      const redirectMap: Record<string, string> = {
+        "student": "/dashboard/student",
+        "warden": "/dashboard/warden",
+        "chiefWarden": "/dashboard/chief-warden",
+        "staff": "/dashboard/staff",
+        "ngo": "/dashboard/ngo",
+        "messManager": "/dashboard/mess-manager",
+        "parent": "/dashboard/parent"
+      };
+
+      window.location.href = redirectMap[data.user.role] || "/dashboard";
+
     } catch (err) {
       setError("Invalid credentials. Please try again.")
     } finally {

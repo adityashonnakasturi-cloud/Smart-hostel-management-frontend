@@ -1,147 +1,101 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { X, Copy, Check } from "lucide-react"
+import { useState } from "react";
+import { X, Copy, Check } from "lucide-react";
 
 interface AddStaffModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSuccess?: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
 }
 
-const staffCategories = ["electrician", "plumber", "cleaner", "roomBoy", "carpenter", "civil"]
-
-// Generate secure random password
-function generatePassword(): string {
-  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  const lower = "abcdefghijklmnopqrstuvwxyz"
-  const numbers = "0123456789"
-  const symbols = "!@#$%^&*"
-
-  let password = ""
-  password += upper.charAt(Math.floor(Math.random() * upper.length))
-  password += lower.charAt(Math.floor(Math.random() * lower.length))
-  password += numbers.charAt(Math.floor(Math.random() * numbers.length))
-  password += symbols.charAt(Math.floor(Math.random() * symbols.length))
-
-  const all = upper + lower + numbers + symbols
-  for (let i = password.length; i < 10; i++) {
-    password += all.charAt(Math.floor(Math.random() * all.length))
-  }
-
-  return password
-    .split("")
-    .sort(() => Math.random() - 0.5)
-    .join("")
-}
+const staffCategories = ["electrician", "plumber", "cleaner", "roomBoy", "carpenter", "civil"];
 
 export default function AddStaffModal({ isOpen, onClose, onSuccess }: AddStaffModalProps) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [category, setCategory] = useState("")
-  const [phoneNo, setPhoneNo] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [successPassword, setSuccessPassword] = useState<string | null>(null)
-  const [backendMissing, setBackendMissing] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [category, setCategory] = useState("");
+  const [phoneNo, setPhoneNo] = useState("");
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const validateForm = () => {
-    if (!name.trim()) {
-      setError("Name is required")
-      return false
-    }
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Valid email is required")
-      return false
-    }
-    if (!category) {
-      setError("Category is required")
-      return false
-    }
-    if (!phoneNo.trim() || !/^\d{10}$/.test(phoneNo.replace(/\D/g, ""))) {
-      setError("Valid 10-digit phone number is required")
-      return false
-    }
-    return true
-  }
+    if (!name.trim()) return setError("Name is required"), false;
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("Valid email is required"), false;
+    if (!category) return setError("Category is required"), false;
+    if (!/^\d{10}$/.test(phoneNo)) return setError("Valid 10-digit phone number required"), false;
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
-    if (!validateForm()) return
+    if (!validateForm()) return;
 
-    const generatedPassword = generatePassword()
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/warden/staff", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/warden/staff`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,  // ADD TOKEN
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
           name,
           email,
           phone: phoneNo,
-          staffType: category,       // FIX category → staffType
-          password: generatedPassword,
+          staffType: category,
         }),
       });
 
+      const data = await res.json();
+      console.log("ADD STAFF RESPONSE:", data);
 
-      if (response.ok) {
-        setSuccessPassword(generatedPassword);
+      if (res.ok) {
+        setGeneratedPassword(data.password || data.generatedPassword || null);
         setName("");
         setEmail("");
         setCategory("");
         setPhoneNo("");
-        onSuccess?.(); // refresh dashboard
-      } else if (response.status === 409) {
-        setError("Email already exists");
+        onSuccess?.();
       } else {
-        setError("Error adding staff");
+        setError(data.message || "Error adding staff");
       }
     } catch (err) {
-      console.warn("[v0] Backend endpoint missing: /warden/staff")
-      setBackendMissing(true)
-      setSuccessPassword(generatedPassword)
+      setError("Server error");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleCopyPassword = () => {
-    if (successPassword) {
-      navigator.clipboard.writeText(successPassword)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+    if (generatedPassword) {
+      navigator.clipboard.writeText(generatedPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-  }
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full max-h-screen overflow-y-auto">
+      <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full max-h-screen overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-foreground">Add Staff Member</h3>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded transition" aria-label="Close">
+          <button onClick={() => { setGeneratedPassword(null); onClose(); }} className="p-1 hover:bg-muted rounded transition">
             <X size={24} />
           </button>
         </div>
 
-        {successPassword ? (
+        {generatedPassword ? (
           <div className="space-y-4">
             <div className="p-4 bg-green-100 border border-green-300 rounded text-sm text-green-800">
-              <p className="font-medium">✓ Staff created successfully</p>
-              {backendMissing && (
-                <p className="text-xs mt-2">Frontend stub: backend endpoint missing — user not persisted</p>
-              )}
+              <p className="font-medium">✓ Staff created successfully!</p>
             </div>
 
             <div>
@@ -149,108 +103,90 @@ export default function AddStaffModal({ isOpen, onClose, onSuccess }: AddStaffMo
               <div className="flex gap-2">
                 <input
                   type="text"
-                  value={successPassword}
+                  value={generatedPassword}
                   readOnly
-                  className="flex-1 px-4 py-2 bg-input border border-border rounded-lg text-foreground"
+                  className="flex-1 px-4 py-2 bg-input border border-border rounded-lg"
                 />
                 <button
                   onClick={handleCopyPassword}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition flex items-center gap-2"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"
                 >
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? <Check size={18} /> : <Copy size={18} />} {copied ? "Copied" : "Copy"}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Share this password with the staff member. They should change it on first login.
+                Take a photo or note this password for staff login.
               </p>
             </div>
 
             <button
-              onClick={onClose}
-              className="w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition font-medium"
+              onClick={() => { setGeneratedPassword(null); onClose(); }}
+              className="w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
             >
               Close
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <div className="p-3 bg-red-100 border border-red-300 rounded text-sm text-red-800">{error}</div>}
+
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Name *</label>
+              <label className="block text-sm font-medium mb-2">Name *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Staff member name"
-                className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                disabled={isLoading}
-                data-testid="staff-name-input"
+                className="w-full px-4 py-2 bg-input border border-border rounded-lg"
+                placeholder="Enter name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Email *</label>
+              <label className="block text-sm font-medium mb-2">Email *</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@example.com"
-                className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                disabled={isLoading}
+                className="w-full px-4 py-2 bg-input border border-border rounded-lg"
+                placeholder="example@mail.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Category *</label>
+              <label className="block text-sm font-medium mb-2">Category *</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                disabled={isLoading}
+                className="w-full px-4 py-2 bg-input border border-border rounded-lg"
               >
                 <option value="">Select category</option>
-                {staffCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
+                {staffCategories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Phone Number *</label>
+              <label className="block text-sm font-medium mb-2">Phone *</label>
               <input
                 type="tel"
                 value={phoneNo}
                 onChange={(e) => setPhoneNo(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                placeholder="1234567890"
-                className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                disabled={isLoading}
+                className="w-full px-4 py-2 bg-input border border-border rounded-lg"
+                placeholder="9876543210"
               />
             </div>
 
-            {error && <div className="p-3 bg-red-100 border border-red-300 rounded text-sm text-red-800">{error}</div>}
-
-            <div className="flex gap-3 mt-6">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                data-testid="add-staff-btn"
-              >
-                {isLoading ? "Adding..." : "Add"}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2 border border-border rounded-lg hover:bg-muted transition font-medium"
-              >
-                Cancel
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium"
+            >
+              {isLoading ? "Adding..." : "Add Staff"}
+            </button>
           </form>
         )}
       </div>
     </div>
-  )
+  );
 }

@@ -169,6 +169,7 @@ export default function ManageStaffPage() {
           { icon: <span>👥</span>, label: "Student List", href: "/dashboard/warden/students" },
           { icon: <span>🏠</span>, label: "Room Management", href: "/dashboard/warden/rooms" },
           { icon: <span>🛠️</span>, label: "Manage Staff", href: "/dashboard/warden/manage-staff" },
+          { icon: "⚠️", label: "Raise Complaint", href: "/dashboard/warden/raise-complaint" },
           { icon: <span>📋</span>, label: "View Complaints", href: "/dashboard/warden/complaints" },
         ]}
       >

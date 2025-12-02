@@ -45,7 +45,7 @@ export default function LoginForm({ role }: LoginFormProps) {
         body: JSON.stringify({
           identifier: email,
           password: password,
-          role: role.toLowerCase().replace(" ", "")  // optional cleanup
+          role: role // optional cleanup
         })
       });
 

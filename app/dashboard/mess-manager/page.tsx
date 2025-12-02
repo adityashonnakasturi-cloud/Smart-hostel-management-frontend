@@ -27,7 +27,7 @@ export default function MessManagerDashboard() {
   ])
 
   return (
-    <ProtectedRoute allowedRoles={["mess-manager"]}>
+    <ProtectedRoute allowedRoles={["messManager"]}>
     <DashboardLayout menuItems={menuItems} role="Mess Manager" userName="Manager">
       <div className="p-6 space-y-8">
         <div>

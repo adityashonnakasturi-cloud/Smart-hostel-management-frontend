@@ -8,10 +8,7 @@ import { useState } from "react"
 
 const menuItems = [
   { icon: "📊", label: "Dashboard", href: "/dashboard/ngo" },
-  { icon: "🍽️", label: "Available Food", href: "/dashboard/ngo/food" },
-  
   { icon: "📦", label: "Pickups", href: "/dashboard/ngo/pickups" },
-  { icon: "📈", label: "Reports", href: "/dashboard/ngo/reports" },
 ]
 
 const pickupData = [

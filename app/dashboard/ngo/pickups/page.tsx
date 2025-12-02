@@ -1,84 +1,111 @@
-"use client"
+"use client";
 
-import DashboardLayout from "@/components/layout/dashboard-layout"
-import DataTable from "@/components/dashboard/data-table"
-import { ArrowLeft, X } from 'lucide-react'
-import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react";
+import DashboardLayout from "@/components/layout/dashboard-layout";
+import DataTable from "@/components/dashboard/data-table";
+import { ArrowLeft, X } from "lucide-react";
+import Link from "next/link";
 
-const menuItems = [
-  { icon: "📊", label: "Dashboard", href: "/dashboard/ngo" },
-  { icon: "📦", label: "Pickups", href: "/dashboard/ngo/pickups" },
-]
-
-const pickupData = [
-  {
-    id: "1",
-    item: "Rice",
-    quantity: "5kg",
-    scheduledDate: "2025-11-03",
-    pickupTime: "10:00 AM",
-    location: "Main Store",
-    status: "Scheduled",
-    contact: "9876543210",
-  },
-  {
-    id: "2",
-    item: "Dal",
-    quantity: "2kg",
-    scheduledDate: "2025-11-04",
-    pickupTime: "2:00 PM",
-    location: "Storage Room",
-    status: "Scheduled",
-    contact: "9876543210",
-  },
-  {
-    id: "3",
-    item: "Bread",
-    quantity: "30pcs",
-    scheduledDate: "2025-11-02",
-    pickupTime: "8:00 AM",
-    location: "Bakery",
-    status: "Completed",
-    contact: "9876543210",
-  },
-]
+const BASE_URL = "http://localhost:5000";
 
 export default function PickupsPage() {
-  const [selectedPickup, setSelectedPickup] = useState<(typeof pickupData)[0] | null>(null)
+  const [pickups, setPickups] = useState<any[]>([]);
+  const [selectedPickup, setSelectedPickup] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch claimed surplus for NGO
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/surplus/claimed`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("FETCH ERROR:", data);
+        setPickups([]);
+        return;
+      }
+
+      const formatted = data.claimed.map((item: any) => ({
+        id: item._id,
+        item: item.title || "Unknown",
+        quantity: item.quantity,
+        scheduledDate: new Date(item.createdAt).toLocaleDateString(),
+        location: "SDM CET Mess", // static since no location field from backend
+        status: item.status === "claimed" ? "Claimed" : item.status,
+        contact: "9876543210", // static - mess manager contact can be added later
+        raw: item,
+      }));
+
+      setPickups(formatted);
+    } catch (err) {
+      console.error(err);
+      setPickups([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   return (
-    <DashboardLayout menuItems={menuItems} role="NGO" userName="NGO Representative">
+    <DashboardLayout
+      menuItems={[
+        { icon: "📊", label: "Dashboard", href: "/dashboard/ngo" },
+        { icon: "📦", label: "Pickups", href: "/dashboard/ngo/pickups" },
+      ]}
+      role="NGO"
+      userName="NGO Representative"
+    >
       <div className="p-6 space-y-6">
+        
+        {/* Header */}
         <div className="flex items-center gap-4">
           <Link href="/dashboard/ngo" className="p-2 hover:bg-muted rounded-lg transition">
             <ArrowLeft size={24} className="text-foreground" />
           </Link>
           <div>
             <h2 className="text-3xl font-bold text-foreground">My Pickups</h2>
-            <p className="text-muted-foreground mt-1">Track scheduled and completed food pickups</p>
+            <p className="text-muted-foreground mt-1">
+              View all surplus food you have claimed
+            </p>
           </div>
         </div>
 
-        <DataTable
-          columns={[
-            { key: "item", label: "Item", sortable: true },
-            { key: "quantity", label: "Quantity", sortable: false },
-            { key: "scheduledDate", label: "Date", sortable: true },
-            { key: "pickupTime", label: "Time", sortable: false },
-            { key: "status", label: "Status", sortable: true },
-          ]}
-          data={pickupData}
-          actions={(row) => (
-            <button
-              onClick={() => setSelectedPickup(row as (typeof pickupData)[0])}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition"
-            >
-              Details
-            </button>
-          )}
-        />
+        {/* If no history */}
+        {loading ? (
+          <p className="text-foreground">Loading pickups…</p>
+        ) : pickups.length === 0 ? (
+          <p className="text-muted-foreground text-lg text-center py-10">
+            No pickup history found.
+          </p>
+        ) : (
+          <DataTable
+            columns={[
+              { key: "item", label: "Item", sortable: true },
+              { key: "quantity", label: "Quantity", sortable: false },
+              { key: "scheduledDate", label: "Date", sortable: true },
+              { key: "status", label: "Status", sortable: true },
+            ]}
+            data={pickups}
+            actions={(row) => (
+              <button
+                onClick={() => setSelectedPickup(row)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition"
+              >
+                Details
+              </button>
+            )}
+          />
+        )}
 
+        {/* Modal */}
         {selectedPickup && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full">
@@ -102,20 +129,16 @@ export default function PickupsPage() {
                   <p className="font-semibold text-foreground">{selectedPickup.quantity}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Scheduled Date</p>
+                  <p className="text-sm text-muted-foreground">Date</p>
                   <p className="font-semibold text-foreground">{selectedPickup.scheduledDate}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Pickup Time</p>
-                  <p className="font-semibold text-foreground">{selectedPickup.pickupTime}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Location</p>
                   <p className="font-semibold text-foreground">{selectedPickup.location}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Contact</p>
-                  <p className="font-semibold text-foreground">{selectedPickup.contact}</p>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <p className="font-semibold text-foreground">{selectedPickup.status}</p>
                 </div>
               </div>
 
@@ -130,5 +153,5 @@ export default function PickupsPage() {
         )}
       </div>
     </DashboardLayout>
-  )
+  );
 }

@@ -1,655 +1,668 @@
-"use client"
+"use client";
 
-import type React from "react"
+import { useEffect, useState } from "react";
+import DashboardLayout from "@/components/layout/dashboard-layout";
+import { ArrowLeft, Trash2, Plus } from "lucide-react";
+import Link from "next/link";
 
-import { useState } from "react"
-import DashboardLayout from "@/components/layout/dashboard-layout"
-import AccountCreatedModal from "@/components/auth/account-created-modal"
-import { ArrowLeft, Edit2, Trash2, Plus } from "lucide-react"
-import Link from "next/link"
-import { generateSecurePassword } from "@/lib/password-generator"
+/* ---------------------- TYPES ADDED (FIX ALL RED UNDERLINES) ----------------------- */
+
+type Staff = {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  hostelId?: {
+    _id: string;
+    name: string;
+  };
+};
+
+type Hostel = {
+  _id: string;
+  name: string;
+};
+
+type PasswordCardData = {
+  role: string;
+  name: string;
+  password: string;
+};
 
 const menuItems = [
   { icon: <span>📊</span>, label: "Dashboard", href: "/dashboard/chief-warden" },
-  { icon: <span>➕</span>, label: "Add Student", href: "/dashboard/chief-warden/add-student" },
   { icon: <span>👥</span>, label: "Manage Wardens", href: "/dashboard/chief-warden/manage-wardens" },
   { icon: <span>⚠️</span>, label: "View Complaints", href: "/dashboard/chief-warden/complaints" },
   { icon: <span>📈</span>, label: "Reports", href: "/dashboard/chief-warden/reports" },
-]
-
-interface Warden {
-  id: string
-  name: string
-  email: string
-  phone: string
-  block: string
-  studentsManaged: number
-  status: "Active" | "Inactive"
-}
-
-interface MessManager {
-  id: string
-  name: string
-  email: string
-  phone: string
-  hostel: string
-  status: "Active" | "Inactive"
-}
+];
 
 export default function ManageWardensPage() {
-  const [wardens, setWardens] = useState<Warden[]>([
-    {
-      id: "1",
-      name: "Mr. Sharma",
-      email: "sharma@hostel.edu",
-      phone: "+91 9876543210",
-      block: "Block A",
-      studentsManaged: 45,
-      status: "Active",
-    },
-    {
-      id: "2",
-      name: "Ms. Patel",
-      email: "patel@hostel.edu",
-      phone: "+91 9876543211",
-      block: "Block B",
-      studentsManaged: 38,
-      status: "Active",
-    },
-    {
-      id: "3",
-      name: "Mr. Kumar",
-      email: "kumar@hostel.edu",
-      phone: "+91 9876543212",
-      block: "Block C",
-      studentsManaged: 42,
-      status: "Active",
-    },
-    {
-      id: "4",
-      name: "Ms. Gupta",
-      email: "gupta@hostel.edu",
-      phone: "+91 9876543213",
-      block: "Block D",
-      studentsManaged: 40,
-      status: "Inactive",
-    },
-  ])
+  const [wardens, setWardens] = useState<Staff[]>([]);
+  const [managers, setManagers] = useState<Staff[]>([]);
+  const [hostels, setHostels] = useState<Hostel[]>([]);
 
-  const [messManagers, setMessManagers] = useState<MessManager[]>([
-    {
-      id: "1",
-      name: "Mr. Singh",
-      email: "singh@hostel.edu",
-      phone: "+91 9876543214",
-      hostel: "Hostel 1",
-      status: "Active",
-    },
-    {
-      id: "2",
-      name: "Ms. Verma",
-      email: "verma@hostel.edu",
-      phone: "+91 9876543215",
-      hostel: "Hostel 2",
-      status: "Inactive",
-    },
-  ])
-
-  const [showWardenForm, setShowWardenForm] = useState(false)
-  const [showMessManagerForm, setShowMessManagerForm] = useState(false)
-  const [editingWardenId, setEditingWardenId] = useState<string | null>(null)
-  const [editingMessManagerId, setEditingMessManagerId] = useState<string | null>(null)
-
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [generatedPassword, setGeneratedPassword] = useState("")
-  const [modalTitle, setModalTitle] = useState("")
-  const [isBackendStub, setIsBackendStub] = useState(false)
-  const [isLoadingWarden, setIsLoadingWarden] = useState(false)
-  const [isLoadingMessManager, setIsLoadingMessManager] = useState(false)
-
-  const [wardenFormData, setWardenFormData] = useState({
+  const [showForm, setShowForm] = useState(false);
+  const [formType, setFormType] = useState<"warden" | "manager" | "">("");
+  const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    block: "",
-  })
+    hostelId: "",
+  });
 
-  const [messManagerFormData, setMessManagerFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    hostel: "",
-  })
+  const [passwordCard, setPasswordCard] = useState<PasswordCardData | null>(null);
 
-  const [wardenErrors, setWardenErrors] = useState<Record<string, string>>({})
-  const [messManagerErrors, setMessManagerErrors] = useState<Record<string, string>>({})
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  const handleChangeWarden = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setWardenFormData((prev) => ({ ...prev, [name]: value }))
-    if (wardenErrors[name]) {
-      setWardenErrors((prev) => ({ ...prev, [name]: "" }))
+  /* ------------------------------ Fetch Wardens & Managers ----------------------------- */
+
+  const fetchData = async () => {
+    try {
+      const wardenRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/wardens/all`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const managerRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/mess-managers/all`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const wardenJson = await wardenRes.json();
+      const managerJson = await managerRes.json();
+
+      setWardens(wardenJson.wardens || []);
+      setManagers(managerJson.managers || []);
+    } catch (err) {
+      console.error("Fetch staff failed:", err);
     }
-  }
+  };
 
-  const handleChangeMessManager = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setMessManagerFormData((prev) => ({ ...prev, [name]: value }))
-    if (messManagerErrors[name]) {
-      setMessManagerErrors((prev) => ({ ...prev, [name]: "" }))
+  /* ------------------------------ Fetch Hostels ------------------------------ */
+
+  const fetchHostels = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/hostels/all`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      setHostels(data.hostels || []);
+    } catch (err) {
+      console.error("Fetch hostels failed:", err);
     }
-  }
+  };
 
-  const handleSubmitWarden = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setWardenErrors({})
-    setIsLoadingWarden(true)
+  useEffect(() => {
+    fetchData();
+    fetchHostels();
+  }, []);
 
-    const password = generateSecurePassword(10)
-    setGeneratedPassword(password)
-    setModalTitle("Account created")
+  /* --------------------------- Form Handling --------------------------- */
+
+  const openForm = (type: "warden" | "manager") => {
+    setFormType(type);
+    setShowForm(true);
+    setFormData({ name: "", email: "", phone: "", hostelId: "" });
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  /* --------------------------- Submit Form --------------------------- */
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const url =
+      formType === "warden"
+        ? `${process.env.NEXT_PUBLIC_API_URL}/auth/chief/warden`
+        : `${process.env.NEXT_PUBLIC_API_URL}/auth/chief/mess-manager`;
 
     try {
-      if (editingWardenId) {
-        setWardens((prev) => prev.map((w) => (w.id === editingWardenId ? { ...w, ...wardenFormData } : w)))
-        setEditingWardenId(null)
-      } else {
-        const response = await fetch("/chief-warden/wardens", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...wardenFormData, password }),
-        })
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-        if (response.status === 200) {
-          setIsBackendStub(false)
-          setWardens((prev) => [
-            ...prev,
-            {
-              id: String(prev.length + 1),
-              ...wardenFormData,
-              studentsManaged: 0,
-              status: "Active",
-            },
-          ])
-        } else if (response.status >= 400 && response.status < 500) {
-          const errorData = await response.json()
-          setWardenErrors(errorData.errors || { general: "Validation error" })
-          setIsLoadingWarden(false)
-          return
-        } else {
-          setIsBackendStub(true)
-        }
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Error creating user");
+        return;
       }
 
-      setShowPasswordModal(true)
-      setWardenFormData({ name: "", email: "", phone: "", block: "" })
-      setShowWardenForm(false)
+      // backend sends password as { password: "abc123" }
+      setPasswordCard({
+        role: formType,
+        name: formData.name,
+        password: data.password,
+      });
+
+      setShowForm(false);
+      fetchData();
     } catch (err) {
-      setIsBackendStub(true)
-      setShowPasswordModal(true)
-    } finally {
-      setIsLoadingWarden(false)
+      console.error("Create failed:", err);
     }
-  }
+  };
 
-  const handleSubmitMessManager = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setMessManagerErrors({})
-    setIsLoadingMessManager(true)
+  /* --------------------------- Delete Staff --------------------------- */
 
-    const password = generateSecurePassword(10)
-    setGeneratedPassword(password)
-    setModalTitle("Account created")
+  const deleteStaff = async (type: "warden" | "manager", id: string) => {
+    const url =
+      type === "warden"
+        ? `${process.env.NEXT_PUBLIC_API_URL}/auth/wardens/${id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/auth/mess-managers/${id}`;
+
+    if (!confirm("Are you sure you want to delete this account?")) return;
 
     try {
-      if (editingMessManagerId) {
-        setMessManagers((prev) =>
-          prev.map((m) => (m.id === editingMessManagerId ? { ...m, ...messManagerFormData } : m)),
-        )
-        setEditingMessManagerId(null)
-      } else {
-        const response = await fetch("/chief-warden/mess-managers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...messManagerFormData, password }),
-        })
-
-        if (response.status === 200) {
-          setIsBackendStub(false)
-          setMessManagers((prev) => [
-            ...prev,
-            {
-              id: String(prev.length + 1),
-              ...messManagerFormData,
-              status: "Active",
-            },
-          ])
-        } else if (response.status >= 400 && response.status < 500) {
-          const errorData = await response.json()
-          setMessManagerErrors(errorData.errors || { general: "Validation error" })
-          setIsLoadingMessManager(false)
-          return
-        } else {
-          setIsBackendStub(true)
-        }
-      }
-
-      setShowPasswordModal(true)
-      setMessManagerFormData({ name: "", email: "", phone: "", hostel: "" })
-      setShowMessManagerForm(false)
+      await fetch(url, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchData();
     } catch (err) {
-      setIsBackendStub(true)
-      setShowPasswordModal(true)
-    } finally {
-      setIsLoadingMessManager(false)
+      console.error("Delete failed:", err);
     }
-  }
+  };
 
-  const handleEditWarden = (warden: Warden) => {
-    setWardenFormData({ name: warden.name, email: warden.email, phone: warden.phone, block: warden.block })
-    setEditingWardenId(warden.id)
-    setShowWardenForm(true)
-  }
-
-  const handleDeleteWarden = (id: string) => {
-    setWardens((prev) => prev.filter((w) => w.id !== id))
-  }
-
-  const handleEditMessManager = (messManager: MessManager) => {
-    setMessManagerFormData({
-      name: messManager.name,
-      email: messManager.email,
-      phone: messManager.phone,
-      hostel: messManager.hostel,
-    })
-    setEditingMessManagerId(messManager.id)
-    setShowMessManagerForm(true)
-  }
-
-  const handleDeleteMessManager = (id: string) => {
-    setMessManagers((prev) => prev.filter((m) => m.id !== id))
-  }
+  /* ----------------------------------- UI ------------------------------------ */
 
   return (
     <DashboardLayout menuItems={menuItems} role="Chief Warden" userName="Dr. Admin">
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard/chief-warden" className="p-2 hover:bg-muted rounded-lg transition">
-              <ArrowLeft size={24} className="text-foreground" />
-            </Link>
-            <div>
-              <h2 className="text-3xl font-bold text-foreground">Manage Wardens</h2>
-              <p className="text-muted-foreground mt-1">View, edit, and assign wardens to hostel blocks</p>
+
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/chief-warden" className="p-2 hover:bg-muted rounded-lg">
+            <ArrowLeft size={24} className="text-foreground" />
+          </Link>
+          <div>
+            <h2 className="text-3xl font-bold">Manage Wardens & Mess Managers</h2>
+          </div>
+        </div>
+
+        {/* Add Buttons */}
+        <div className="flex gap-4">
+          <button
+            onClick={() => openForm("warden")}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg"
+          >
+            <Plus size={18} /> Add Warden
+          </button>
+
+          <button
+            onClick={() => openForm("manager")}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary text-black rounded-lg"
+          >
+            <Plus size={18} /> Add Mess Manager
+          </button>
+        </div>
+
+        {/* Warden List */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h3 className="text-xl font-semibold mb-4">Wardens</h3>
+
+          {wardens.map((w) => (
+            <div
+              key={w._id}
+              className="flex justify-between items-center p-4 border rounded-lg mb-3"
+            >
+              <div>
+                <p className="font-semibold">{w.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {w.email} • {w.phone}
+                </p>
+                <p className="text-sm">Hostel: {w.hostelId?.name || "N/A"}</p>
+              </div>
+
+              <Trash2
+                className="text-red-500 cursor-pointer"
+                onClick={() => deleteStaff("warden", w._id)}
+              />
             </div>
-          </div>
-          <button
-            onClick={() => {
-              setWardenFormData({ name: "", email: "", phone: "", block: "" })
-              setEditingWardenId(null)
-              setShowWardenForm(true)
-            }}
-            data-testid="add-warden-btn"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Add Warden
-          </button>
-          <button
-            onClick={() => {
-              setMessManagerFormData({ name: "", email: "", phone: "", hostel: "" })
-              setEditingMessManagerId(null)
-              setShowMessManagerForm(true)
-            }}
-            data-testid="add-mess-manager-btn"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Add Mess Manager
-          </button>
+          ))}
         </div>
 
-        {/* Add/Edit Warden Form */}
-        {showWardenForm && (
-          <div className="bg-card border border-border rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              {editingWardenId ? "Edit Warden" : "Add New Warden"}
-            </h3>
-            <form onSubmit={handleSubmitWarden} className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={wardenFormData.name}
-                    onChange={handleChangeWarden}
-                    placeholder="e.g., Mr. Sharma"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  />
-                  {wardenErrors.name && <p className="text-red-500 text-xs mt-1">{wardenErrors.name}</p>}
-                </div>
+        {/* Mess Manager List */}
+        <div className="bg-card border border-border rounded-lg p-6 mt-6">
+          <h3 className="text-xl font-semibold mb-4">Mess Managers</h3>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={wardenFormData.email}
-                    onChange={handleChangeWarden}
-                    placeholder="e.g., sharma@hostel.edu"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  />
-                  {wardenErrors.email && <p className="text-red-500 text-xs mt-1">{wardenErrors.email}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={wardenFormData.phone}
-                    onChange={handleChangeWarden}
-                    placeholder="e.g., +91 9876543210"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  />
-                  {wardenErrors.phone && <p className="text-red-500 text-xs mt-1">{wardenErrors.phone}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Block Assignment</label>
-                  <select
-                    name="block"
-                    value={wardenFormData.block}
-                    onChange={handleChangeWarden}
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  >
-                    <option value="">Select Block</option>
-                    <option value="Block A">Block A</option>
-                    <option value="Block B">Block B</option>
-                    <option value="Block C">Block C</option>
-                    <option value="Block D">Block D</option>
-                  </select>
-                  {wardenErrors.block && <p className="text-red-500 text-xs mt-1">{wardenErrors.block}</p>}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={isLoadingWarden}
-                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoadingWarden ? "Adding..." : editingWardenId ? "Update" : "Add"} Warden
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowWardenForm(false)
-                    setEditingWardenId(null)
-                    setWardenFormData({ name: "", email: "", phone: "", block: "" })
-                  }}
-                  className="px-6 py-2 border border-border text-foreground rounded-lg font-semibold hover:bg-muted transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Add/Edit Mess Manager Form */}
-        {showMessManagerForm && (
-          <div className="bg-card border border-border rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              {editingMessManagerId ? "Edit Mess Manager" : "Add New Mess Manager"}
-            </h3>
-            <form onSubmit={handleSubmitMessManager} className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={messManagerFormData.name}
-                    onChange={handleChangeMessManager}
-                    placeholder="e.g., Mr. Singh"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  />
-                  {messManagerErrors.name && <p className="text-red-500 text-xs mt-1">{messManagerErrors.name}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={messManagerFormData.email}
-                    onChange={handleChangeMessManager}
-                    placeholder="e.g., singh@hostel.edu"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  />
-                  {messManagerErrors.email && <p className="text-red-500 text-xs mt-1">{messManagerErrors.email}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={messManagerFormData.phone}
-                    onChange={handleChangeMessManager}
-                    placeholder="e.g., +91 9876543214"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  />
-                  {messManagerErrors.phone && <p className="text-red-500 text-xs mt-1">{messManagerErrors.phone}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Hostel Assignment</label>
-                  <select
-                    name="hostel"
-                    value={messManagerFormData.hostel}
-                    onChange={handleChangeMessManager}
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    required
-                  >
-                    <option value="">Select Hostel</option>
-                    <option value="Hostel 1">Hostel 1</option>
-                    <option value="Hostel 2">Hostel 2</option>
-                    <option value="Hostel 3">Hostel 3</option>
-                  </select>
-                  {messManagerErrors.hostel && <p className="text-red-500 text-xs mt-1">{messManagerErrors.hostel}</p>}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={isLoadingMessManager}
-                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoadingMessManager ? "Adding..." : editingMessManagerId ? "Update" : "Add"} Mess Manager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMessManagerForm(false)
-                    setEditingMessManagerId(null)
-                    setMessManagerFormData({ name: "", email: "", phone: "", hostel: "" })
-                  }}
-                  className="px-6 py-2 border border-border text-foreground rounded-lg font-semibold hover:bg-muted transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Wardens List */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted border-b border-border">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Name</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Email</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Phone</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Block</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Students Managed</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Status</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {wardens.map((warden) => (
-                  <tr key={warden.id} className="border-b border-border hover:bg-muted/50 transition">
-                    <td className="px-6 py-4 text-foreground">{warden.name}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{warden.email}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{warden.phone}</td>
-                    <td className="px-6 py-4 text-foreground font-medium">{warden.block}</td>
-                    <td className="px-6 py-4 text-foreground">{warden.studentsManaged}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          warden.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {warden.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditWarden(warden)}
-                          className="p-2 hover:bg-muted rounded-lg transition text-primary"
-                          title="Edit warden"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteWarden(warden.id)}
-                          className="p-2 hover:bg-muted rounded-lg transition text-red-500"
-                          title="Delete warden"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Mess Managers List */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted border-b border-border">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Name</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Email</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Phone</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Hostel</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Status</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {messManagers.map((messManager) => (
-                  <tr key={messManager.id} className="border-b border-border hover:bg-muted/50 transition">
-                    <td className="px-6 py-4 text-foreground">{messManager.name}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{messManager.email}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{messManager.phone}</td>
-                    <td className="px-6 py-4 text-foreground font-medium">{messManager.hostel}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          messManager.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {messManager.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditMessManager(messManager)}
-                          className="p-2 hover:bg-muted rounded-lg transition text-primary"
-                          title="Edit mess manager"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMessManager(messManager.id)}
-                          className="p-2 hover:bg-muted rounded-lg transition text-red-500"
-                          title="Delete mess manager"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {wardens.length === 0 && (
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
-            <div className="text-5xl mb-4">👥</div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No Wardens Found</h3>
-            <p className="text-muted-foreground mb-4">Add your first warden to get started</p>
-            <button
-              onClick={() => {
-                setWardenFormData({ name: "", email: "", phone: "", block: "" })
-                setEditingWardenId(null)
-                setShowWardenForm(true)
-              }}
-              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition"
+          {managers.map((m) => (
+            <div
+              key={m._id}
+              className="flex justify-between items-center p-4 border rounded-lg mb-3"
             >
-              Add Warden
-            </button>
-          </div>
-        )}
+              <div>
+                <p className="font-semibold">{m.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {m.email} • {m.phone}
+                </p>
+              </div>
 
-        {messManagers.length === 0 && (
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
-            <div className="text-5xl mb-4">🍽️</div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No Mess Managers Found</h3>
-            <p className="text-muted-foreground mb-4">Add your first mess manager to get started</p>
-            <button
-              onClick={() => {
-                setMessManagerFormData({ name: "", email: "", phone: "", hostel: "" })
-                setEditingMessManagerId(null)
-                setShowMessManagerForm(true)
-              }}
-              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition"
-            >
-              Add Mess Manager
-            </button>
-          </div>
-        )}
+              <Trash2
+                className="text-red-500 cursor-pointer"
+                onClick={() => deleteStaff("manager", m._id)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
-      <AccountCreatedModal
-        isOpen={showPasswordModal}
-        title={modalTitle}
-        password={generatedPassword}
-        isStub={isBackendStub}
-        onClose={() => setShowPasswordModal(false)}
-      />
+      {/* Modal Form */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-card p-6 rounded-lg w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              Add {formType === "warden" ? "Warden" : "Mess Manager"}
+            </h3>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="text"
+                name="name"
+                placeholder="Full Name"
+                required
+                onChange={handleChange}
+                className="w-full px-4 py-2 border rounded"
+              />
+
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                required
+                onChange={handleChange}
+                className="w-full px-4 py-2 border rounded"
+              />
+
+              <input
+                type="text"
+                name="phone"
+                placeholder="Phone Number"
+                required
+                onChange={handleChange}
+                className="w-full px-4 py-2 border rounded"
+              />
+
+              {formType === "warden" && (
+                <select
+                  name="hostelId"
+                  required
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border rounded"
+                >
+                  <option value="">Select Hostel</option>
+                  {hostels.map((h) => (
+                    <option key={h._id} value={h._id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <div className="flex gap-3">
+                <button className="flex-1 bg-primary text-white py-2 rounded">
+                  Create
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 bg-muted py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Modal */}
+      {passwordCard && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-card p-6 rounded-lg w-full max-w-md text-center">
+            <h3 className="text-xl font-semibold mb-4">Account Created</h3>
+
+            <p className="font-medium text-lg">{passwordCard.name}</p>
+
+            <p className="text-sm text-muted-foreground uppercase">
+              {passwordCard.role}
+            </p>
+
+            <div className="bg-muted p-4 rounded-lg mt-4 mb-4">
+              <p className="text-sm">Generated Password</p>
+              <p className="font-bold text-xl">{passwordCard.password}</p>
+            </div>
+
+            <button
+              onClick={() => setPasswordCard(null)}
+              className="px-6 py-2 bg-primary text-white rounded"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
-  )
+  );
 }
+// "use client";
+
+// import { useEffect, useState } from "react";
+// import DashboardLayout from "@/components/layout/dashboard-layout";
+// import { ArrowLeft, Trash2, Plus } from "lucide-react";
+// import Link from "next/link";
+// import AccountCreatedModal from "@/components/auth/account-created-modal";
+
+// const API = process.env.NEXT_PUBLIC_API_URL;
+
+// // -------------------------- Types ---------------------------
+// interface Hostel {
+//   _id: string;
+//   name: string;
+// }
+
+// interface Warden {
+//   _id: string;
+//   name: string;
+//   email: string;
+//   phone: string;
+//   hostelId?: { _id: string; name: string }; // populated
+// }
+
+// interface MessManager {
+//   _id: string;
+//   name: string;
+//   email: string;
+//   phone: string;
+// }
+
+// // -------------------------- Component ------------------------
+// export default function ManageWardensPage() {
+//   const [wardens, setWardens] = useState<Warden[]>([]);
+//   const [messManagers, setMessManagers] = useState<MessManager[]>([]);
+//   const [hostels, setHostels] = useState<Hostel[]>([]);
+//   const [showWardenForm, setShowWardenForm] = useState(false);
+//   const [showMMForm, setShowMMForm] = useState(false);
+//   const [modalOpen, setModalOpen] = useState(false);
+//   const [generatedPassword, setGeneratedPassword] = useState("");
+//   const [createdUsername, setCreatedUsername] = useState("");
+
+//   // -------------------------- Form Data ------------------------
+//   const [wardenForm, setWardenForm] = useState({
+//     name: "",
+//     email: "",
+//     phone: "",
+//     hostelId: "",
+//   });
+
+//   const [mmForm, setMMForm] = useState({
+//     name: "",
+//     email: "",
+//     phone: "",
+//   });
+
+//   // -------------------------- Fetch Data ------------------------
+//   const fetchAll = async () => {
+//     try {
+//       const token = localStorage.getItem("token");
+//       if (!token) {
+//         console.error("No token found");
+//         return;
+//       }
+
+//       const headers = {
+//         Authorization: `Bearer ${token}`,
+//       };
+
+//       const [wRes, mRes, hRes] = await Promise.all([
+//         fetch(`${API}/auth/wardens/all`, { headers }).then((r) => r.json()),
+//         fetch(`${API}/auth/mess-managers/all`, { headers }).then((r) => r.json()),
+//         fetch(`${API}/hostels`, { headers }).then((r) => r.json()),
+//       ]);
+
+//       setWardens(wRes.wardens || []);
+//       setMessManagers(mRes.managers || []);
+//       setHostels(hRes.hostels || []);
+//     } catch (err) {
+//       console.error("Fetch error:", err);
+//     }
+//   };
+
+//   useEffect(() => {
+//     fetchAll();
+//   }, []);
+
+//   // -------------------------- Form Handlers ------------------------
+//   const handleWardenChange = (e: any) =>
+//     setWardenForm({ ...wardenForm, [e.target.name]: e.target.value });
+
+//   const handleMMChange = (e: any) =>
+//     setMMForm({ ...mmForm, [e.target.name]: e.target.value });
+
+//   // -------------------------- Add Warden ------------------------
+//   const submitWarden = async (e: any) => {
+//     e.preventDefault();
+
+//     if (!wardenForm.hostelId) {
+//       alert("Please select a hostel");
+//       return;
+//     }
+
+//     try {
+//       const res = await fetch(`${API}/auth/chief/warden`, {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify(wardenForm),
+//       });
+
+//       const data = await res.json();
+
+//       if (res.ok) {
+//         setGeneratedPassword(data.password);
+//         setCreatedUsername(wardenForm.email);
+//         setModalOpen(true);
+//         setShowWardenForm(false);
+//         setWardenForm({ name: "", email: "", phone: "", hostelId: "" });
+//         fetchAll();
+//       } else {
+//         alert(data.message);
+//       }
+//     } catch (err) {
+//       console.error(err);
+//     }
+//   };
+
+//   // -------------------------- Add Mess Manager ------------------------
+//   const submitMM = async (e: any) => {
+//     e.preventDefault();
+
+//     try {
+//       const res = await fetch(`${API}/auth/chief/mess-manager`, {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify(mmForm),
+//       });
+
+//       const data = await res.json();
+
+//       if (res.ok) {
+//         setGeneratedPassword(data.password);
+//         setCreatedUsername(mmForm.email);
+//         setModalOpen(true);
+//         setShowMMForm(false);
+//         setMMForm({ name: "", email: "", phone: "" });
+//         fetchAll();
+//       } else {
+//         alert(data.message);
+//       }
+//     } catch (err) {
+//       console.error(err);
+//     }
+//   };
+
+//   // -------------------------- Delete ------------------------
+//   const deleteWarden = async (id: string) => {
+//     if (!confirm("Are you sure you want to delete this warden?")) return;
+
+//     await fetch(`${API}/auth/wardens/${id}`, { method: "DELETE" });
+//     fetchAll();
+//   };
+
+//   const deleteMM = async (id: string) => {
+//     if (!confirm("Are you sure you want to delete this mess manager?")) return;
+
+//     await fetch(`${API}/auth/mess-managers/${id}`, { method: "DELETE" });
+//     fetchAll();
+//   };
+
+//   return (
+//     <DashboardLayout menuItems={[]} role="Chief Warden" userName="Admin">
+//       <div className="p-6 space-y-8">
+//         {/* Header */}
+//         <div className="flex items-center gap-4">
+//           <Link href="/dashboard/chief-warden" className="p-2 rounded-lg hover:bg-muted">
+//             <ArrowLeft size={24} />
+//           </Link>
+
+//           <div>
+//             <h2 className="text-3xl font-bold">Manage Wardens & Mess Manager</h2>
+//             <p className="text-muted-foreground mt-1">
+//               Create, view and remove hostel staff.
+//             </p>
+//           </div>
+//         </div>
+
+//         {/* Add Buttons */}
+//         <div className="flex gap-4">
+//           <button
+//             onClick={() => setShowWardenForm(true)}
+//             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg"
+//           >
+//             <Plus size={18} /> Add Warden
+//           </button>
+
+//           <button
+//             onClick={() => setShowMMForm(true)}
+//             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg"
+//           >
+//             <Plus size={18} /> Add Mess Manager
+//           </button>
+//         </div>
+
+//         {/* Add Warden Form */}
+//         {showWardenForm && (
+//           <form onSubmit={submitWarden} className="p-6 border rounded-lg space-y-4 bg-card">
+//             <h3 className="text-xl font-semibold">New Warden</h3>
+
+//             <input name="name" onChange={handleWardenChange} placeholder="Name" required className="input" />
+//             <input name="email" onChange={handleWardenChange} placeholder="Email" required className="input" />
+//             <input name="phone" onChange={handleWardenChange} placeholder="Phone" required className="input" />
+
+//             <select
+//               name="hostelId"
+//               required
+//               value={wardenForm.hostelId}
+//               onChange={handleWardenChange}
+//               className="input"
+//             >
+//               <option value="">Select Hostel</option>
+//               {hostels.map((h) => (
+//                 <option key={h._id} value={h._id}>
+//                   {h.name}
+//                 </option>
+//               ))}
+//             </select>
+
+//             <button type="submit" className="btn-primary w-full">
+//               Create Warden
+//             </button>
+//           </form>
+//         )}
+
+//         {/* Add Mess Manager Form */}
+//         {showMMForm && (
+//           <form onSubmit={submitMM} className="p-6 border rounded-lg space-y-4 bg-card">
+//             <h3 className="text-xl font-semibold">New Mess Manager</h3>
+
+//             <input name="name" onChange={handleMMChange} placeholder="Name" required className="input" />
+//             <input name="email" onChange={handleMMChange} placeholder="Email" required className="input" />
+//             <input name="phone" onChange={handleMMChange} placeholder="Phone" required className="input" />
+
+//             <button type="submit" className="btn-primary w-full">
+//               Create Mess Manager
+//             </button>
+//           </form>
+//         )}
+
+//         {/* Wardens List */}
+//         <div className="p-6 border rounded-lg">
+//           <h3 className="text-xl font-semibold mb-4">Wardens</h3>
+
+//           {wardens.map((w) => (
+//             <div key={w._id} className="flex justify-between items-center p-4 border rounded-md mb-3">
+//               <div>
+//                 <p className="font-semibold">{w.name}</p>
+//                 <p className="text-sm">{w.email}</p>
+//                 <p className="text-sm">{w.phone}</p>
+//                 <p className="text-sm text-muted-foreground">
+//                   Hostel: {w.hostelId?.name || "N/A"}
+//                 </p>
+//               </div>
+
+//               <button
+//                 onClick={() => deleteWarden(w._id)}
+//                 className="p-2 text-red-600 hover:bg-red-100 rounded-md"
+//               >
+//                 <Trash2 size={20} />
+//               </button>
+//             </div>
+//           ))}
+//         </div>
+
+//         {/* Mess Managers List */}
+//         <div className="p-6 border rounded-lg">
+//           <h3 className="text-xl font-semibold mb-4">Mess Managers</h3>
+
+//           {messManagers.map((m) => (
+//             <div key={m._id} className="flex justify-between items-center p-4 border rounded-md mb-3">
+//               <div>
+//                 <p className="font-semibold">{m.name}</p>
+//                 <p className="text-sm">{m.email}</p>
+//                 <p className="text-sm">{m.phone}</p>
+//               </div>
+
+//               <button
+//                 onClick={() => deleteMM(m._id)}
+//                 className="p-2 text-red-600 hover:bg-red-100 rounded-md"
+//               >
+//                 <Trash2 size={20} />
+//               </button>
+//             </div>
+//           ))}
+//         </div>
+//       </div>
+
+//       <AccountCreatedModal
+//         isOpen={modalOpen}
+//         title="Account Created"
+//         username={createdUsername}
+//         password={generatedPassword}
+//         isStub={false}
+//         onClose={() => setModalOpen(false)}
+//       />
+//     </DashboardLayout>
+//   );
+// }

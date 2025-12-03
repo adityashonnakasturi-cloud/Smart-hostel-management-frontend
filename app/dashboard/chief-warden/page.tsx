@@ -275,8 +275,9 @@ export default function ChiefWardenDashboard() {
         menuItems={[
           { icon: <span>📊</span>, label: "Dashboard", href: "/dashboard/chief-warden" },
           { icon: <span>👥</span>, label: "Manage Wardens", href: "/dashboard/chief-warden/manage-wardens" },
-          { icon: <span>⚠️</span>, label: "View Complaints", href: "/dashboard/chief-warden/complaints" },
-          { icon: <span>📢</span>, label: "Notices", href: "/dashboard/chief-warden/notices" },
+          { icon: <span>🛠️</span>, label: "View Complaints", href: "/dashboard/chief-warden/complaints" },
+          { icon: "📢", label: "Upload Notice", href: "/dashboard/chief-warden/noticeupload" },
+          { icon: "⚠️", label: "Student Complaints", href: "/dashboard/chief-warden/student-complaints" },
         ]}
         role="Chief Warden"
         userName="Chief Warden"
@@ -313,10 +314,10 @@ export default function ChiefWardenDashboard() {
                   const tileClass = isFull
                     ? "bg-red-50 border-red-200"
                     : isMaintenance
-                    ? "bg-gray-50 border-gray-200"
-                    : isPartial
-                    ? "bg-yellow-50 border-yellow-200"
-                    : "bg-green-50 border-green-200";
+                      ? "bg-gray-50 border-gray-200"
+                      : isPartial
+                        ? "bg-yellow-50 border-yellow-200"
+                        : "bg-green-50 border-green-200";
 
                   return (
                     <div
@@ -327,7 +328,7 @@ export default function ChiefWardenDashboard() {
                       <div className="flex items-start justify-between">
                         <div className="min-w-0">
                           <p className="text-lg font-semibold text-foreground truncate">
-                             {r.roomNumber || r.roomNo || r.number}
+                            {r.roomNumber || r.roomNo || r.number}
                           </p>
                           <p className="text-sm text-muted-foreground truncate">
                             {r.roomType || r.roomTypeString || "—"} F0{r.floar}
@@ -447,7 +448,7 @@ export default function ChiefWardenDashboard() {
               <div className="mt-6">
                 {selectedRoom.status === "maintenance" ? (
                   <div className="text-sm text-muted-foreground p-3 rounded border">This room is under maintenance and is blocked from allocation.</div>
-                ) : ( (roomStudents.length < (selectedRoom.capacity || 1)) ? (
+                ) : ((roomStudents.length < (selectedRoom.capacity || 1)) ? (
                   <button
                     onClick={() => handleAddStudent(selectedRoom)}
                     className="w-full py-2 bg-primary text-white rounded-lg hover:bg-primary/90"

@@ -9,8 +9,9 @@ import { useEffect, useState } from "react";
 const menuItems = [
   { icon: <span>📊</span>, label: "Dashboard", href: "/dashboard/chief-warden" },
   { icon: <span>👥</span>, label: "Manage Wardens", href: "/dashboard/chief-warden/manage-wardens" },
-  { icon: <span>⚠️</span>, label: "View Complaints", href: "/dashboard/chief-warden/complaints" },
-  { icon: <span>📈</span>, label: "Reports", href: "/dashboard/chief-warden/reports" },
+  { icon: <span>🛠️</span>, label: "View Complaints", href: "/dashboard/chief-warden/complaints" },
+  { icon: "📢", label: "Upload Notice", href: "/dashboard/chief-warden/noticeupload" },
+{ icon: "⚠️", label: "Student Complaints", href: "/dashboard/chief-warden/student-complaints" },
 ];
 
 export default function ChiefComplaintsPage() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import FormCard from "@/components/dashboard/form-card";
@@ -13,7 +13,10 @@ const menuItems = [
   { icon: <span>➕</span>, label: "Add Student", href: "/dashboard/chief-warden/add-student" },
 ];
 
-export default function AddStudentPage() {
+// ✅ use env variable so Netlify talks to Render backend
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+function AddStudentPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -35,7 +38,6 @@ export default function AddStudentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Handle input change
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -45,16 +47,15 @@ export default function AddStudentPage() {
     }
   };
 
-  // Submit to backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrors({});
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/chief/student", {
+      const res = await fetch(`${API_BASE}/api/auth/chief/student`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -91,7 +92,6 @@ export default function AddStudentPage() {
         room: roomNumberFromURL, // keep prefilled
         roomId: roomIdFromURL,
       });
-
     } catch (err) {
       console.error(err);
       setErrors({ general: "Network error" });
@@ -103,7 +103,6 @@ export default function AddStudentPage() {
   return (
     <DashboardLayout menuItems={menuItems} role="Chief Warden" userName="Dr. Admin">
       <div className="p-6 space-y-6">
-        
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link href="/dashboard/chief-warden" className="p-2 hover:bg-muted rounded-lg transition">
@@ -122,7 +121,6 @@ export default function AddStudentPage() {
           onSubmit={handleSubmit}
         >
           <div className="grid md:grid-cols-2 gap-6">
-
             <div>
               <label className="block text-sm font-medium mb-2">USN</label>
               <input
@@ -191,7 +189,6 @@ export default function AddStudentPage() {
                 className="w-full px-4 py-2 bg-muted border rounded-lg text-foreground cursor-not-allowed"
               />
             </div>
-
           </div>
 
           <div className="flex gap-4 pt-4">
@@ -217,8 +214,8 @@ export default function AddStudentPage() {
       <AccountCreatedModal
         isOpen={showPasswordModal}
         title="Student Created Successfully"
-        username={generatedUsername}     // NEW
-        password={generatedPassword}     // From backend
+        username={generatedUsername}
+        password={generatedPassword}
         isStub={false}
         onClose={() => {
           setShowPasswordModal(false);
@@ -226,5 +223,14 @@ export default function AddStudentPage() {
         }}
       />
     </DashboardLayout>
+  );
+}
+
+// ✅ Suspense wrapper required by Next.js for useSearchParams
+export default function AddStudentPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddStudentPageInner />
+    </Suspense>
   );
 }

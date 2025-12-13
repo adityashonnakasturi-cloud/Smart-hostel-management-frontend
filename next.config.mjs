@@ -6,7 +6,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  devIndicators: false, 
-}
+  experimental: {
+    lightningcss: false,
+  },
+};
 
-export default nextConfig
+export default nextConfig;
